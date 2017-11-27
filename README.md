@@ -43,6 +43,7 @@ The maximum range of lockon for missiles (in metres)
 ## LOCK_ANGLE:
 
 The angle (on each side) (in radians) that is permissible for missiles
+
 ![lock_angle](https://user-images.githubusercontent.com/13986150/33270481-34acb21e-d3aa-11e7-8c36-21d1fc2f679e.png)
 
 ## VALID_TARGET_FUNCTION:
