@@ -1,0 +1,5 @@
+<meta>
+    <info author="spopo" version="1.0" type="script"/>
+	<oop>true</oop>
+	<script src="missile.lua" type="client" />
+</meta>
