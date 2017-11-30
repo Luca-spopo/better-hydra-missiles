@@ -2,7 +2,7 @@
 Luca aka
 specahawk aka
 spopo aka
-Anirudh Katoch aka
+Anirudh Katoch
 
 (All rights reserved)
 MIT License - Do whatever you want.
@@ -49,21 +49,52 @@ local inHydra = false
 local firestate = nil
 local visibleVehicles = {}
 local lockedVehicles = {}
+local nearbyVehicles = {}
+getNearbyVehicles = function() return nearbyVehicles end --Used by other files
+local next, pairs, ipairs = next, pairs, ipairs
+local getTarget, stopHydra
+
+local function checkForLockout(vehicle)
+	if visibleVehicles[vehicle] then
+		triggerEvent("onClientHydraMissilesSystemLockout", localPlayer, vehicle)
+		visibleVehicles[vehicle] = nil
+		lockedVehicles[vehicle] = nil
+		-- if getTarget() == vehicle then
+			getTarget()
+		-- end
+	end
+end
+
+local function prev(t, index)
+	local cur, val = next(t, index)
+	while index ~= next(t, cur) do
+		cur, val = next(t, cur)
+	end
+	return cur, val
+end
 
 local target
-local function switchTarget()
+local function switchTarget(key, keystate, dir)
 	if not inHydra then
 		return
 	end
+	local it = next
+	if dir == "back" then
+		it = prev
+	end
+	local prev = target
 	if target and not lockedVehicles[target] then
 		target = nil
 	end
-	target = (next(lockedVehicles, target))
+	target = (it(lockedVehicles, target))
 	if target == nil then --i.e. was last item
-		target = (next(lockedVehicles, target))
+		target = (it(lockedVehicles, target))
+	end
+	if target~=prev then
+		triggerEvent("onClientHydraMissilesSystemTargetChange", localPlayer, target)
 	end
 end
-local function getTarget()
+getTarget = function()
 	if not inHydra then
 		return
 	end
@@ -84,86 +115,73 @@ local function shootMissile()
 	end
 	lastShot = getTickCount()
 	local hydra = localPlayer.vehicle
-	createProjectile( hydra, 20, hydra.position, 1, target)
+	if triggerEvent("onClientHydraMissilesSystemShootHoming", localPlayer, target)==true then
+		createProjectile( hydra, 20, hydra.position, 1, target)
+	end
 end
 
 
 
-local function update( )
+local function update()
 	local curtime = getTickCount()
-	if not inHydra or not localPlayer.vehicle then
-		removeEventHandler("onClientRender", root, update)
+	if not localPlayer.vehicle then --idk why, but sometimes the player has no vehicle sometime before vehicle exit event is fired
+		stopHydra() --The Avengers
 		return
 	end
 	local target = getTarget()
-	for _, vehicle in ipairs( getElementsByType("vehicle" ) )do
+	for _, vehicle in ipairs(nearbyVehicles) do
 		local visibleNow = false
 		local locked = lockedVehicles[vehicle]
-		if not isVehicleBlown(vehicle) and validTarget(vehicle) then
-			local x,y,z = getElementPosition( vehicle )
-			local cx,cy,cz = getElementPosition( localPlayer )
-			local displacement = vehicle.position - localPlayer.position
+		if vehicle~=localPlayer.vehicle and not vehicle.blown and validTarget(vehicle) then
+			local targPos = vehicle.position
+			local myPos = localPlayer.position
+			local displacement = targPos-myPos
 			local dist = displacement.length
 			local cosAngle = localPlayer.vehicle.matrix.forward:dot(displacement)/dist
 			if dist < LOCK_RANGE and cosAngle>LOCK_ANGLE then
-				if  vehicle ~= getPedOccupiedVehicle( localPlayer ) then
-					local aX, aY, aZ = getScreenFromWorldPosition( x, y, z )
-					if( aX and aY and aZ )then
-						visibleNow = true
-						local pclr1,pclr2,pclr3
-						local ctrlr = getVehicleController( vehicle )
-						if ctrlr then
-							pclr1,pclr2,pclr3 = getPlayerNametagColor( ctrlr )
-						else
-							pclr1,pclr2,pclr3 = 255,255,255
-						end
-						if locked then
-							tween = 0
-						else
-							tween = 1 - (curtime - (visibleVehicles[vehicle] or curtime))/LOCKON_TIME
-						end
-
-						local color = tocolor(pclr1, pclr2, pclr3, (1-tween)*200)
-						local R = 1000/math.min(math.max(dist, 20), 100)
-						dxDrawLine( aX+R, aY+R, aX-R, aY+R,color, 2 )
-						dxDrawLine( aX+R, aY-R, aX-R, aY-R,color, 2 )
-						dxDrawLine( aX+R, aY-R, aX+R, aY+R,color, 2 )
-						dxDrawLine( aX-R, aY-R, aX-R, aY+R,color, 2 )
-						local suffix = " m"
-						if locked then
-							suffix = " m (LOCKED ON)"
-						end
-						dxDrawText( getVehicleName( vehicle ), aX-20, aY+25, 25, 20, color, 0.9)
-						dxDrawText( math.floor( dist )..suffix, aX-20, aY+40, 25, 20, color, 0.9 )
-
-						if vehicle == target then
-							color = tocolor(255, 20, 20, (1-tween)*200)
-						end
+				local aX, aY = getScreenFromWorldPosition(targPos)
+				if (aY) then
+					local R = 1000/math.min(math.max(dist, 20), 100)
+					local color
+					visibleNow = true
+					if locked then
+						tween = 0
+					else
+						tween = 1 - (curtime - (visibleVehicles[vehicle] or curtime))/LOCKON_TIME
 						tween=tween^4 --easing function
-						do
-							--Draw the corners of the target box outline
-							dxDrawLine( aX+R+(8+tween*300), aY+R+(8+tween*300), aX+R*0.8, aY+R+(8+tween*300),color, 2 )
-							dxDrawLine( aX+R+(8+tween*300), aY-R-(8+tween*300), aX+R*0.8, aY-R-(8+tween*300),color, 2 )
-							dxDrawLine( aX+R+(8+tween*300), aY+R+(8+tween*300), aX+R+(8+tween*300), aY+R*0.8,color, 2 )
-							dxDrawLine( aX-R-(8+tween*300), aY+R+(8+tween*300), aX-R-(8+tween*300), aY+R*0.8,color, 2 )
 
-							dxDrawLine( aX-R-(8+tween*300), aY+R+(8+tween*300), aX-R*0.8, aY+R+(8+tween*300),color, 2 )
-							dxDrawLine( aX-R-(8+tween*300), aY-R-(8+tween*300), aX-R*0.8, aY-R-(8+tween*300),color, 2 )
-							dxDrawLine( aX+R+(8+tween*300), aY-R-(8+tween*300), aX+R+(8+tween*300), aY-R*0.8,color, 2 )
-							dxDrawLine( aX-R-(8+tween*300), aY-R-(8+tween*300), aX-R-(8+tween*300), aY-R*0.8,color, 2 )
-						end
+					end
+					if vehicle == target then
+						color = tocolor(255, 99, 71, 220)
+					elseif locked then
+						color = tocolor(255,165,0, 160)						
+					else
+						color = tocolor(255,215,0, (1-tween)*80)
+					end
+					do
+						--Draw the corners of the target box outline
+						dxDrawLine( aX+R+(8+tween*300), aY+R+(8+tween*300), aX+R*0.8, aY+R+(8+tween*300),color, 2 )
+						dxDrawLine( aX+R+(8+tween*300), aY-R-(8+tween*300), aX+R*0.8, aY-R-(8+tween*300),color, 2 )
+						dxDrawLine( aX+R+(8+tween*300), aY+R+(8+tween*300), aX+R+(8+tween*300), aY+R*0.8,color, 2 )
+						dxDrawLine( aX-R-(8+tween*300), aY+R+(8+tween*300), aX-R-(8+tween*300), aY+R*0.8,color, 2 )
+
+						dxDrawLine( aX-R-(8+tween*300), aY+R+(8+tween*300), aX-R*0.8, aY+R+(8+tween*300),color, 2 )
+						dxDrawLine( aX-R-(8+tween*300), aY-R-(8+tween*300), aX-R*0.8, aY-R-(8+tween*300),color, 2 )
+						dxDrawLine( aX+R+(8+tween*300), aY-R-(8+tween*300), aX+R+(8+tween*300), aY-R*0.8,color, 2 )
+						dxDrawLine( aX-R-(8+tween*300), aY-R-(8+tween*300), aX-R-(8+tween*300), aY-R*0.8,color, 2 )
 					end
 				end
 			end
 		end
 		if not visibleNow then
-			visibleVehicles[vehicle] = nil
-			lockedVehicles[vehicle] = nil
+			checkForLockout(vehicle)
 		elseif visibleVehicles[vehicle] then
 			if not locked and curtime - visibleVehicles[vehicle] > LOCKON_TIME then
 				lockedVehicles[vehicle] = true
+				triggerEvent("onClientHydraMissilesSystemLockonEnd", localPlayer, vehicle)
 			end 
 		else
+			triggerEvent("onClientHydraMissilesSystemLockonStart", localPlayer, vehicle)
 			visibleVehicles[vehicle] = curtime
 		end
 	end
@@ -176,27 +194,58 @@ local function homingState(key,state)
 		firestate = isControlEnabled("vehicle_secondary_fire")
 		toggleControl("vehicle_secondary_fire",false)
 		bindKey("vehicle_secondary_fire","down",shootMissile)
+		triggerEvent("onClientHydraMissilesSystemHomingStateOn", localPlayer, vehicle)
 	else
 		toggleControl("vehicle_secondary_fire",firestate)
 		firestate = nil
 		unbindKey("vehicle_secondary_fire","down",shootMissile)
+		triggerEvent("onClientHydraMissilesSystemHomingStateOff", localPlayer, vehicle)
 	end
 end
 
+local function streamInHandler()
+	if getElementType( source ) == "vehicle" then
+		outputChatBox("A vehicle streamed in")
+		table.insert(nearbyVehicles, source)
+	end
+end
+local function streamOutHandler()
+	if getElementType( source ) == "vehicle" then
+		outputChatBox("A vehicle streamed out")
+		for i, v in ipairs(nearbyVehicles) do
+			if v == source then
+				checkForLockout(source)
+				table.remove(nearbyVehicles, i)
+				return
+			end
+		end
+	end
+end
 local function startHydra(vehicle)
 	if not inHydra and vehicle and isElement(vehicle) and vehicle.model == 520 then
+		nearbyVehicles = getElementsByType("vehicle", root, true)
+		addEventHandler("onClientElementStreamIn", getRootElement(), streamInHandler)
+		addEventHandler("onClientElementStreamOut", getRootElement(), streamOutHandler)
 		inHydra = tostring(isControlEnabled("handbrake"))
 		toggleControl("handbrake", false)
 		bindKey("handbrake","down",homingState)
 		bindKey("handbrake","up",homingState)
-		bindKey("mouse_wheel_up","down",switchTarget)
+		bindKey("mouse_wheel_up","down",switchTarget, "back")
 		bindKey("mouse_wheel_down","down",switchTarget)
 		bindKey("horn","down",switchTarget)
 		addEventHandler( "onClientRender", root,  update)
+		triggerEvent("onClientHydraMissilesSystemStart", localPlayer, vehicle)
 	end
 end
-local function stopHydra()
+stopHydra = function()
 	if inHydra then
+		local target = getTarget()
+		for i, v in ipairs(nearbyVehicles) do
+			if v ~= target then
+				checkForLockout(v)
+			end
+		end
+		checkForLockout(target)
 		removeEventHandler("onClientRender", root, update)
 		unbindKey("handbrake","down",homingState)
 		unbindKey("handbrake","up",homingState)
@@ -208,6 +257,9 @@ local function stopHydra()
 		unbindKey("horn","down",switchTarget)
 		toggleControl("handbrake", inHydra=="true")
 		inHydra = false
+		removeEventHandler("onClientElementStreamIn", getRootElement(), streamInHandler)
+		removeEventHandler("onClientElementStreamOut", getRootElement(), streamOutHandler)
+		triggerEvent("onClientHydraMissilesSystemStop", localPlayer, vehicle)
 	end
 end
 
@@ -222,4 +274,28 @@ local function initScript()
 	addEventHandler("onClientPlayerVehicleEnter",localPlayer,startHydra)
 end
 
+addEvent("onClientHydraMissilesSystemStart")
+addEvent("onClientHydraMissilesSystemStop")
+addEvent("onClientHydraMissilesSystemLockonStart")
+addEvent("onClientHydraMissilesSystemLockonEnd")
+addEvent("onClientHydraMissilesSystemLockout")
+addEvent("onClientHydraMissilesSystemTargetChange")
+addEvent("onClientHydraMissilesSystemShootHoming")
+addEvent("onClientHydraMissilesSystemHomingStateOn")
+addEvent("onClientHydraMissilesSystemHomingStateOff")
+
 addEventHandler("onClientResourceStart",resourceRoot,initScript)
+
+
+local function callback()
+	outputChatBox(eventName.." was called")
+end
+addEventHandler("onClientHydraMissilesSystemStart", localPlayer, callback)
+addEventHandler("onClientHydraMissilesSystemStop", localPlayer, callback)
+addEventHandler("onClientHydraMissilesSystemLockonStart", localPlayer, callback)
+addEventHandler("onClientHydraMissilesSystemLockonEnd", localPlayer, callback)
+addEventHandler("onClientHydraMissilesSystemLockout", localPlayer, callback)
+addEventHandler("onClientHydraMissilesSystemTargetChange", localPlayer, callback)
+addEventHandler("onClientHydraMissilesSystemShootHoming", localPlayer, callback)
+addEventHandler("onClientHydraMissilesSystemHomingStateOn", localPlayer, callback)
+addEventHandler("onClientHydraMissilesSystemHomingStateOff", localPlayer, callback)
