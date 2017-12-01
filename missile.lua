@@ -1,46 +1,3 @@
-local next, pairs, ipairs, localPlayer, addEvent, addEventHandler, triggerEvent, math, table, resourceRoot, isElement, getTickCount, getElementType, getElementsByType, tostring, dxDrawLine, removeEventHandler, bindKey, unbindKey, toggleControl, root, tocolor, getScreenFromWorldPosition, isControlEnabled =
-      next, pairs, ipairs, localPlayer, addEvent, addEventHandler, triggerEvent, math, table, resourceRoot, isElement, getTickCount, getElementType, getElementsByType, tostring, dxDrawLine, removeEventHandler, bindKey, unbindKey, toggleControl, root, tocolor, getScreenFromWorldPosition, isControlEnabled;
-
-addEventHandler("onClientDebugMessage", root, function(message, level, file, line)
-	outputChatBox(("Debug: %s::%d : %s"):format(file, line, message))
-end)
-
-do
-    -- Use local variables
-    local old_G, new_G = _G, {}
-    local print = outputChatBox
-    local permitted = {}
-    permitted.getNearbyVehicles = true
-    permitted.outputChatBox = true
-    permitted.eventName = true
-    permitted.print = true
-    permitted.source = true
-
-    -- Copy values if you want to silence logging
-    -- about already set fields (eg. predeclared globals).
-    -- for k, v in pairs(old_G) do new_G[k] = v end
-
-    setmetatable(new_G, {
-        __index = function (t, key)
-        	if not permitted[key] then
-	            print("Read> " .. tostring(key))
-	        end
-            return old_G[key]
-        end,
-
-        __newindex = function (t, key, val)
-        	if not permitted[key] then
-            	print("Write> " .. tostring(key) .. ' = ' .. tostring(val))
-            end
-            old_G[key] = val
-        end,
-    })
-
-    -- Set it at level 1 (top-level function)
-    setfenv(1, new_G)
-end
-
-
 --[[
 Luca aka
 specahawk aka
@@ -56,8 +13,15 @@ MIT License - Do whatever you want.
 local SHOOT_COOLDOWN = 1000 --Cooldown between homing shots
 local LOCKON_TIME = 2000 --Time required to lock on to a target
 local LOCK_RANGE = 330 --Maximum distance between you and the target
-local LOCK_ANGLE = 3.141--1.0472 --(in radians) We cannot lock on targets unless they are within this angle of the front of the hydra
-local VALID_TARGET_FUNCTION = nil --Used to decide whether a vehicle should appear as a lock-on option
+local LOCK_ANGLE = 1.0472 --(in radians) We cannot lock on targets unless they are within this angle of the front of the hydra
+local VALID_TARGET_FUNCTION = function (vehicle) --Used to decide whether a vehicle should appear as a lock-on option
+	local targetTeam = vehicle.controller and vehicle.controller.team
+	local ourTeam = localPlayer.team
+	if targetTeam and ourTeam and targetTeam == ourTeam then
+		return false --The target vehicle has someone driving, and both of you are on the same team
+	end
+	return true
+end
 --[[
 	to implement team tagging, or to disallow certain vehicles from being targetted, define the VALID_TARGET_FUNCTION
 	VALID_TARGET_FUNCTION should take as parameter a vehicle, and return a boolean (true means it can be targetted)
@@ -86,7 +50,9 @@ local VALID_TARGET_FUNCTION = nil --Used to decide whether a vehicle should appe
 
 print("Starting resource 'better-hydra-missiles'")
 
--- local sx_, sy_ = guiGetScreenSize()
+local next, pairs, ipairs, localPlayer, addEvent, createProjectile, addEventHandler, triggerEvent, math, table, resourceRoot, isElement, getTickCount, getElementType, getElementsByType, tostring, dxDrawLine, removeEventHandler, bindKey, unbindKey, toggleControl, root, tocolor, getScreenFromWorldPosition, isControlEnabled =
+      next, pairs, ipairs, localPlayer, addEvent, createProjectile, addEventHandler, triggerEvent, math, table, resourceRoot, isElement, getTickCount, getElementType, getElementsByType, tostring, dxDrawLine, removeEventHandler, bindKey, unbindKey, toggleControl, root, tocolor, getScreenFromWorldPosition, isControlEnabled;
+
 local validTarget = VALID_TARGET_FUNCTION or function() return true end
 LOCK_ANGLE = math.cos(LOCK_ANGLE)
 
@@ -252,7 +218,6 @@ local function vehicleGoneHandler() --This also triggers on localPlayer's vehicl
 	removeEventHandler("onClientElementDestroy", source, vehicleGoneHandler)
 	removeEventHandler("onClientElementStreamOut", source, vehicleGoneHandler)
 	if getElementType( source ) == "vehicle" then
-		outputChatBox("A vehicle streamed out")
 		for i, v in ipairs(nearbyVehicles) do
 			if v == source then
 				checkForLockout(source)
@@ -270,7 +235,6 @@ end
 
 local function streamInHandler()
 	if getElementType( source ) == "vehicle" then
-		outputChatBox("A vehicle streamed in")
 		table.insert(nearbyVehicles, source)
 		prepAfterStreamIn(source)
 	end
@@ -362,16 +326,16 @@ addEvent("onClientHydraMissilesSystemHomingStateOff")
 
 addEventHandler("onClientResourceStart",resourceRoot,initScript)
 
-
-local function callback()
-	outputChatBox(eventName.." was called")
-end
-addEventHandler("onClientHydraMissilesSystemStart", localPlayer, callback)
-addEventHandler("onClientHydraMissilesSystemStop", localPlayer, callback)
-addEventHandler("onClientHydraMissilesSystemLockonStart", localPlayer, callback)
-addEventHandler("onClientHydraMissilesSystemLockonEnd", localPlayer, callback)
-addEventHandler("onClientHydraMissilesSystemLockout", localPlayer, callback)
-addEventHandler("onClientHydraMissilesSystemTargetChange", localPlayer, callback)
-addEventHandler("onClientHydraMissilesSystemShootHoming", localPlayer, callback)
-addEventHandler("onClientHydraMissilesSystemHomingStateOn", localPlayer, callback)
-addEventHandler("onClientHydraMissilesSystemHomingStateOff", localPlayer, callback)
+--testing calllbacks:
+-- local function callback()
+-- 	outputChatBox(eventName.." was called")
+-- end
+-- addEventHandler("onClientHydraMissilesSystemStart", localPlayer, callback)
+-- addEventHandler("onClientHydraMissilesSystemStop", localPlayer, callback)
+-- addEventHandler("onClientHydraMissilesSystemLockonStart", localPlayer, callback)
+-- addEventHandler("onClientHydraMissilesSystemLockonEnd", localPlayer, callback)
+-- addEventHandler("onClientHydraMissilesSystemLockout", localPlayer, callback)
+-- addEventHandler("onClientHydraMissilesSystemTargetChange", localPlayer, callback)
+-- addEventHandler("onClientHydraMissilesSystemShootHoming", localPlayer, callback)
+-- addEventHandler("onClientHydraMissilesSystemHomingStateOn", localPlayer, callback)
+-- addEventHandler("onClientHydraMissilesSystemHomingStateOff", localPlayer, callback)

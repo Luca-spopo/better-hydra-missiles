@@ -18,6 +18,9 @@ local VALID_VEHICLE_FUNCTION = nil --Similar to VALID_TARGET_FUNCTION in missile
 
 ---------------------
 
+local getScreenFromWorldPosition, getVehicleName, root, localPlayer, tocolor, math, table, dxDrawLine, dxDrawText, ipairs, pairs, addEventHandler, getPlayerNametagColor, removeEventHandler =
+      getScreenFromWorldPosition, getVehicleName, root, localPlayer, tocolor, math, table, dxDrawLine, dxDrawText, ipairs, pairs, addEventHandler, getPlayerNametagColor, removeEventHandler;
+
 LABEL_FUNCTION = LABEL_FUNCTION or function(vehicle)
 	return getVehicleName(vehicle)
 end
@@ -26,7 +29,12 @@ COLOR_FUNCTION = COLOR_FUNCTION or function ( vehicle )
 	if not plr then
 		return 255,255,255
 	else
-		return getPlayerNametagColor(plr)
+		--return getPlayerNametagColor(plr)
+		if plr.team and plr.team == localPlayer.team then
+			return 30, 255, 30
+		else
+			return 255, 30, 30
+		end
 	end
 end
 VALID_VEHICLE_FUNCTION = VALID_VEHICLE_FUNCTION or function() return true end

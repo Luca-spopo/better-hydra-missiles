@@ -1,6 +1,13 @@
-local CAMERA_DISTANCE = 15
+---User settings:
 
-local up = Vector3(0, 0, CAMERA_DISTANCE/2)
+local CAMERA_DISTANCE = 40
+
+----
+
+local Vector3, addEventHandler, root, localPlayer, Camera, setCameraTarget =
+      Vector3, addEventHandler, root, localPlayer, Camera, setCameraTarget;
+
+local up = Vector3(0, 0, 5)
 local target, homing, setCamTarg_flag
 setCamTarg_flag = false
 addEventHandler("onClientRender", root, function()
