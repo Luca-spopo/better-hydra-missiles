@@ -116,5 +116,8 @@ local CAMERA_DISTANCE = 40
 
 The distance between your hydra and you (in metres), when using focus on an enemy.
 
+# Very Thank
+
 In case of any questions or bug reports, open an issue on this repo.
+
 Pull requests are welcome too.
