@@ -1,3 +1,46 @@
+local next, pairs, ipairs, localPlayer, addEvent, addEventHandler, triggerEvent, math, table, resourceRoot, isElement, getTickCount, getElementType, getElementsByType, tostring, dxDrawLine, removeEventHandler, bindKey, unbindKey, toggleControl, root, tocolor, getScreenFromWorldPosition, isControlEnabled =
+      next, pairs, ipairs, localPlayer, addEvent, addEventHandler, triggerEvent, math, table, resourceRoot, isElement, getTickCount, getElementType, getElementsByType, tostring, dxDrawLine, removeEventHandler, bindKey, unbindKey, toggleControl, root, tocolor, getScreenFromWorldPosition, isControlEnabled;
+
+addEventHandler("onClientDebugMessage", root, function(message, level, file, line)
+	outputChatBox(("Debug: %s::%d : %s"):format(file, line, message))
+end)
+
+do
+    -- Use local variables
+    local old_G, new_G = _G, {}
+    local print = outputChatBox
+    local permitted = {}
+    permitted.getNearbyVehicles = true
+    permitted.outputChatBox = true
+    permitted.eventName = true
+    permitted.print = true
+    permitted.source = true
+
+    -- Copy values if you want to silence logging
+    -- about already set fields (eg. predeclared globals).
+    -- for k, v in pairs(old_G) do new_G[k] = v end
+
+    setmetatable(new_G, {
+        __index = function (t, key)
+        	if not permitted[key] then
+	            print("Read> " .. tostring(key))
+	        end
+            return old_G[key]
+        end,
+
+        __newindex = function (t, key, val)
+        	if not permitted[key] then
+            	print("Write> " .. tostring(key) .. ' = ' .. tostring(val))
+            end
+            old_G[key] = val
+        end,
+    })
+
+    -- Set it at level 1 (top-level function)
+    setfenv(1, new_G)
+end
+
+
 --[[
 Luca aka
 specahawk aka
@@ -13,7 +56,7 @@ MIT License - Do whatever you want.
 local SHOOT_COOLDOWN = 1000 --Cooldown between homing shots
 local LOCKON_TIME = 2000 --Time required to lock on to a target
 local LOCK_RANGE = 330 --Maximum distance between you and the target
-local LOCK_ANGLE = 1.0472 --(in radians) We cannot lock on targets unless they are within this angle of the front of the hydra
+local LOCK_ANGLE = 3.141--1.0472 --(in radians) We cannot lock on targets unless they are within this angle of the front of the hydra
 local VALID_TARGET_FUNCTION = nil --Used to decide whether a vehicle should appear as a lock-on option
 --[[
 	to implement team tagging, or to disallow certain vehicles from being targetted, define the VALID_TARGET_FUNCTION
@@ -41,7 +84,9 @@ local VALID_TARGET_FUNCTION = nil --Used to decide whether a vehicle should appe
 
 ---Don't touch stuff below this line---
 
-local sx_, sy_ = guiGetScreenSize()
+print("Starting resource 'better-hydra-missiles'")
+
+-- local sx_, sy_ = guiGetScreenSize()
 local validTarget = VALID_TARGET_FUNCTION or function() return true end
 LOCK_ANGLE = math.cos(LOCK_ANGLE)
 
@@ -51,8 +96,7 @@ local visibleVehicles = {}
 local lockedVehicles = {}
 local nearbyVehicles = {}
 getNearbyVehicles = function() return nearbyVehicles end --Used by other files
-local next, pairs, ipairs = next, pairs, ipairs
-local getTarget, stopHydra
+local getTarget, stopHydra, currentHydra
 
 local function checkForLockout(vehicle)
 	if visibleVehicles[vehicle] then
@@ -144,6 +188,7 @@ local function update()
 					local R = 1000/math.min(math.max(dist, 20), 100)
 					local color
 					visibleNow = true
+					local tween
 					if locked then
 						tween = 0
 					else
@@ -194,22 +239,18 @@ local function homingState(key,state)
 		firestate = isControlEnabled("vehicle_secondary_fire")
 		toggleControl("vehicle_secondary_fire",false)
 		bindKey("vehicle_secondary_fire","down",shootMissile)
-		triggerEvent("onClientHydraMissilesSystemHomingStateOn", localPlayer, vehicle)
+		triggerEvent("onClientHydraMissilesSystemHomingStateOn", localPlayer, currentHydra)
 	else
 		toggleControl("vehicle_secondary_fire",firestate)
 		firestate = nil
 		unbindKey("vehicle_secondary_fire","down",shootMissile)
-		triggerEvent("onClientHydraMissilesSystemHomingStateOff", localPlayer, vehicle)
+		triggerEvent("onClientHydraMissilesSystemHomingStateOff", localPlayer, currentHydra)
 	end
 end
 
-local function streamInHandler()
-	if getElementType( source ) == "vehicle" then
-		outputChatBox("A vehicle streamed in")
-		table.insert(nearbyVehicles, source)
-	end
-end
-local function streamOutHandler()
+local function vehicleGoneHandler() --This also triggers on localPlayer's vehicle, and does nothing to it
+	removeEventHandler("onClientElementDestroy", source, vehicleGoneHandler)
+	removeEventHandler("onClientElementStreamOut", source, vehicleGoneHandler)
 	if getElementType( source ) == "vehicle" then
 		outputChatBox("A vehicle streamed out")
 		for i, v in ipairs(nearbyVehicles) do
@@ -221,12 +262,33 @@ local function streamOutHandler()
 		end
 	end
 end
+
+local function prepAfterStreamIn(vehicle)
+	addEventHandler("onClientElementStreamOut", vehicle, vehicleGoneHandler)
+	addEventHandler("onClientElementDestroy", vehicle, vehicleGoneHandler)	
+end
+
+local function streamInHandler()
+	if getElementType( source ) == "vehicle" then
+		outputChatBox("A vehicle streamed in")
+		table.insert(nearbyVehicles, source)
+		prepAfterStreamIn(source)
+	end
+end
+
+
 local function startHydra(vehicle)
 	if not inHydra and vehicle and isElement(vehicle) and vehicle.model == 520 then
 		nearbyVehicles = getElementsByType("vehicle", root, true)
-		addEventHandler("onClientElementStreamIn", getRootElement(), streamInHandler)
-		addEventHandler("onClientElementStreamOut", getRootElement(), streamOutHandler)
+		for i, v in ipairs(nearbyVehicles) do
+			prepAfterStreamIn(v)
+		end
+		addEventHandler("onClientElementStreamIn", root, streamInHandler)
+		addEventHandler("onClientVehicleExplode", vehicle, stopHydra)
+		addEventHandler("onClientElementDestroy", vehicle, stopHydra)
+		addEventHandler("onClientElementStreamOut", vehicle, stopHydra) --Is this even possible?
 		inHydra = tostring(isControlEnabled("handbrake"))
+		currentHydra = vehicle --To remove the listeners later
 		toggleControl("handbrake", false)
 		bindKey("handbrake","down",homingState)
 		bindKey("handbrake","up",homingState)
@@ -242,23 +304,37 @@ stopHydra = function()
 		local target = getTarget()
 		for i, v in ipairs(nearbyVehicles) do
 			if v ~= target then
+				removeEventHandler("onClientElementDestroy", v, vehicleGoneHandler)
+				removeEventHandler("onClientElementStreamOut", v, vehicleGoneHandler)
 				checkForLockout(v)
 			end
 		end
 		checkForLockout(target)
+		if target then
+			removeEventHandler("onClientElementDestroy", target, vehicleGoneHandler)
+			removeEventHandler("onClientElementStreamOut", target, vehicleGoneHandler)
+		end
 		removeEventHandler("onClientRender", root, update)
 		unbindKey("handbrake","down",homingState)
 		unbindKey("handbrake","up",homingState)
 		if firestate ~= nil then
 			homingState("handbrake","up")
 		end
+		local vehicle = currentHydra
+		currentHydra = nil
 		unbindKey("mouse_wheel_up","down",switchTarget)
 		unbindKey("mouse_wheel_down","down",switchTarget)
 		unbindKey("horn","down",switchTarget)
 		toggleControl("handbrake", inHydra=="true")
 		inHydra = false
-		removeEventHandler("onClientElementStreamIn", getRootElement(), streamInHandler)
-		removeEventHandler("onClientElementStreamOut", getRootElement(), streamOutHandler)
+		removeEventHandler("onClientElementStreamIn", root, streamInHandler)
+		if isElement(vehicle) then
+			removeEventHandler("onClientVehicleExplode", vehicle, stopHydra)
+			removeEventHandler("onClientElementDestroy", vehicle, stopHydra)
+			removeEventHandler("onClientElementStreamOut", vehicle, stopHydra)
+		else
+			outputDebugString("There was an annoying problem on this line, write a bug report please.")
+		end
 		triggerEvent("onClientHydraMissilesSystemStop", localPlayer, vehicle)
 	end
 end

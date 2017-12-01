@@ -2,4 +2,8 @@
     <info author="spopo" version="1.1" type="script"/>
 	<oop>true</oop>
 	<script src="missile.lua" type="client" />
+	<!-- Totally optional, just remove/comment the line below if you don't want vizor.lua. -->
+		<script src="vizor.lua" type="client" />
+	<!-- Totally optional, just remove/comment the line below if you don't want focus.lua. -->
+		<script src="focus.lua" type="client" />
 </meta>
