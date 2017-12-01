@@ -7,7 +7,7 @@ https://youtu.be/IZ-gPio3d3o
 # Installation
 1. Make a new folder in `YOUR_MTA_SERVER/mods/deathmatch/resources`
 2. Put all the files in here into that folder you just created
-3. Optionally, you can enable "focus.lua" or disable "vizor.lua" by excluding or including them in the `meta.xml` file.
+3. Optionally, you can enable/disable `focus.lua` and `vizor.lua` by excluding/including them in the `meta.xml` file.
 
 # Usage
 When you're in a Hydra, all vehicles that are in front of you (within your 120 degree view) get "locked on" after 2 seconds.
@@ -115,6 +115,77 @@ local CAMERA_DISTANCE = 40
 ### CAMERA_DISTANCE
 
 The distance between your hydra and you (in metres), when using focus on an enemy.
+
+# Events
+
+This script emits events that can be handled by other resources using MTA's event system.
+The source of all these events is localPlayer
+
+```lua
+addEvent("onClientHydraMissilesSystemStart")
+addEvent("onClientHydraMissilesSystemStop")
+addEvent("onClientHydraMissilesSystemLockonStart")
+addEvent("onClientHydraMissilesSystemLockonEnd")
+addEvent("onClientHydraMissilesSystemLockout")
+addEvent("onClientHydraMissilesSystemTargetChange")
+addEvent("onClientHydraMissilesSystemShootHoming")
+addEvent("onClientHydraMissilesSystemHomingStateOn")
+addEvent("onClientHydraMissilesSystemHomingStateOff")
+```
+
+### onClientHydraMissilesSystemStart
+
+Triggered when a player gets in a Hydra and the missile system (lock ons, vizor etc) kick in.
+
+### onClientHydraMissilesSystemStop
+
+Triggered when the missile system stops for whatever reason (Maybe player left the vehicle, or the vehicle element was destroyed, or the player died, or the resource stopped etc)
+
+### onClientHydraMissilesSystemLockonStart
+
+Triggered when a vehicle is in lock-on range, and the lockon timer has started. Callback (handler) function receives one argument, which is the vehicle that the lockon was started on.
+
+### onClientHydraMissilesSystemLockonEnd
+
+Triggered when a lock on is complete. A player can target the vehicle once lockon is complete. You can have multiple vehicles completely locked on, but only one target at a time. Callback function gets the locked on vehicle as argument.
+
+As an example, here is a snippet that would alert a player if he has been locked on by another Hydra.
+```lua
+addEventHandler("onClientHydraMissilesSystemLockonEnd", localPlayer, function(veh)
+	if veh.controller then
+		callServerFunction("alert", veh.controller, localPlayer.name.." has a lock on you!")
+	end
+end)
+```
+
+### onClientHydraMissilesSystemLockout
+
+Triggered when a lock on is disengaged. The lockon does not have to have been completed. You can have a "LockonStart" event and then a "Lockout" event if the target went off screen before the lockon completed. If the target went off screen after a lock on completed, you will get "LockonStart", "LockonEnd" and then a "Lockout" event.
+This is also triggered when the lockout is due to unnatural reasons such as the localPlayer dying, or a locked in vehicle exploding. In general, lockout event is called on each locked in vehicle one at a time after onClientHydraMissilesSystemStop
+
+The callback gets the formerly locked in vehicle as a parameter.
+
+### onClientHydraMissilesSystemTargetChange
+
+Triggered whenever the player's current target changes. This can be due to a lockout, due to the player changing targets himself, or even unnatural causes such as the player exiting his hydra. This function is called either when the target changes to another vehicle, or when there was a target and there isn't one anymore.
+
+The callback function gets the current target as a parameter. This can be a vehicle, or `nil` (if there was a target earlier and there isn't one now)
+
+### onClientHydraMissilesSystemShootHoming
+
+Triggered when the client shoots a homing missile from the hydra. Using `cancelEvent()` will prevent the missile from being fired.
+
+The callback function gets the target vehicle as a parameter.
+
+This event is NOT triggered for non-homing missiles.
+
+### onClientHydraMissilesSystemHomingStateOn
+
+This event is triggered when the player presses handbrake while in a hydra, to shoot homing missiles instead of regular ones.
+
+### onClientHydraMissilesSystemHomingStateOff
+
+This event is triggered when the player releases handbrake while in a hydra, to shoot regular missiles instead of heat seeking ones.
 
 # Very Thank
 
