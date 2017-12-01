@@ -160,14 +160,22 @@ end)
 
 ### onClientHydraMissilesSystemLockout
 
-Triggered when a lock on is disengaged. The lockon does not have to have been completed. You can have a "LockonStart" event and then a "Lockout" event if the target went off screen before the lockon completed. If the target went off screen after a lock on completed, you will get "LockonStart", "LockonEnd" and then a "Lockout" event.
-This is also triggered when the lockout is due to unnatural reasons such as the localPlayer dying, or a locked in vehicle exploding. In general, lockout event is called on each locked in vehicle one at a time after onClientHydraMissilesSystemStop
+Triggered when a lock on is disengaged. The lockon does not have to have been completed.
+
+You can have a "LockonStart" event and then a "Lockout" event if the target went off screen before the lockon completed.
+
+If the target went off screen after a lock on completed, you will get "LockonStart", "LockonEnd" and then a "Lockout" event.
+
+
+This is also triggered when the lockout is due to unnatural reasons such as the localPlayer dying, or a locked in vehicle exploding. In general, lockout event is called on each locked in vehicle one at a time if `onClientHydraMissilesSystemStop` fires.
 
 The callback gets the formerly locked in vehicle as a parameter.
 
 ### onClientHydraMissilesSystemTargetChange
 
-Triggered whenever the player's current target changes. This can be due to a lockout, due to the player changing targets himself, or even unnatural causes such as the player exiting his hydra. This function is called either when the target changes to another vehicle, or when there was a target and there isn't one anymore.
+Triggered whenever the player's current target changes. This can be due to a lockout, due to the player changing targets himself, or even unnatural causes such as the player exiting his hydra.
+
+This function is called either when the target changes to another vehicle, or when there was a target and there isn't one anymore.
 
 The callback function gets the current target as a parameter. This can be a vehicle, or `nil` (if there was a target earlier and there isn't one now)
 
