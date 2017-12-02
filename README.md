@@ -2,7 +2,7 @@
 A better heat seeking missiles targetting and launching system for MTA San Andreas
 
 Demo:
-https://youtu.be/IZ-gPio3d3o
+https://youtu.be/VtsQxDf__gA
 
 # Installation
 1. Make a new folder in `YOUR_MTA_SERVER/mods/deathmatch/resources`
